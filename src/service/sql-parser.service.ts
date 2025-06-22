@@ -1,9 +1,9 @@
-import { Ast, AstComment, AstCreate } from "../modele/ast.modele";
+import { AstComment, AstCreate, ReferenceDefinitionAst } from "../modele/ast.modele";
+import { readFileSync } from 'fs';
+import { AST, Create, Parser } from 'node-sql-parser/build/postgresql';
 import InfoTable, { Attribut, AttributCleEtrangere } from "../modele/info-table.interface";
 import ObjetUtils from "../utils/objet.utils";
-
-const nsp = require('node-sql-parser/build/postgresql');
-const fs = require('fs');
+import { CHEMIN_RESSOURCE } from "../constante/sauvegarde.constante";
 
 class SqlParser {
     recupererTablesCrees(): InfoTable[] {
@@ -41,13 +41,13 @@ class SqlParser {
         
     }
 
-    private chargerSQL(): Ast[] {
-        const sqlFile = fs.readFileSync('./ressources/schema.sql').toString();
-        const parser = new nsp.Parser();
-        return parser.astify(sqlFile) as Ast[];
+    private chargerSQL(): (AST | AstComment)[] {
+        const sqlFile = readFileSync(`${CHEMIN_RESSOURCE}/schema.sql`).toString();
+        const resultat = new Parser().parse(sqlFile).ast;
+        return Array.isArray(resultat) ? resultat : [resultat];
     }
 
-    private construireInfoTable(ast: AstCreate): InfoTable {
+    private construireInfoTable(ast: Create): InfoTable {
         return {
             attributs: this.recupererAttribut(ast),
             clesEtrangeres: this.recupererClesEtrangeres(ast),
@@ -56,27 +56,33 @@ class SqlParser {
         }
     }
 
-    private recupererClesPrimaire(ast: AstCreate): string[] {
-        const clePrimaires = ast.create_definitions
+    private recupererClesPrimaire(ast: Create): string[] {
+        const clePrimaires = (ast as unknown as AstCreate).create_definitions
+                .filter((cd) => cd.resource === "column")
                 .filter((cd) => cd.primary_key)
                 .map((cd) => {
                     if (Array.isArray(cd.definition)) throw new Error('Type impossible');
                     return cd.column.column.expr.value.toUpperCase();
                 });
         const clesPrimares2 = ast.create_definitions
-            .filter((cd) => cd.constraint_type === 'primary key' && Array.isArray(cd.definition))
-            .flatMap((cd) => Array.isArray(cd.definition) ? cd.definition : [])
-            .map((def) => def.column.expr.value.toUpperCase())
+            .filter((cd) => cd.resource === "constraint" && cd.constraint_type === "primary key")
+            .flatMap((cd) => cd.definition)
+            .filter((def) => def.type === "column_ref")
+            .map((def) => {
+                if (typeof def.column === 'string') throw new Error('Type impossible');
+                return def.column.expr.value.toString().toUpperCase();
+            })
         return [...clesPrimares2, ...clePrimaires];
     }
 
-    private recupererAttribut(ast: AstCreate): Attribut[] {
+    private recupererAttribut(ast: Create): Attribut[] {
         return ast.create_definitions
-            .filter((cd) => !Array.isArray(cd.definition))
+            .filter((cd) => cd.resource === "column")
             .map((cd) => {
-                if (Array.isArray(cd.definition)) throw new Error('Type impossible');
+                if (cd.column.type !== 'column_ref' 
+                    || typeof cd.column.column === 'string') throw new Error('Type impossible');
                 return {
-                    code: cd.column.column.expr.value.toUpperCase(),
+                    code: cd.column.column.expr.value.toString().toUpperCase(),
                     type: cd.definition.dataType.toUpperCase(),
                     nullable: cd.nullable?.value !== 'not null' && cd.definition.dataType.toUpperCase() !== 'SERIAL',
                     default: ObjetUtils.toString(cd.default_val?.value.value),
@@ -85,23 +91,36 @@ class SqlParser {
             })
     }
 
-    private recupererClesEtrangeres(ast: AstCreate): AttributCleEtrangere[] {
-        return ast.create_definitions
-            .filter((cd) => cd.reference_definition?.table.length > 0)
+    private recupererClesEtrangeres(ast: Create): AttributCleEtrangere[] {
+        const cleEtrangereDefinieColonne = ast.create_definitions
+            .filter((cd) => cd.resource === "column")
+            .filter((cd) => (cd.reference_definition as unknown as ReferenceDefinitionAst)?.table.length > 0)
             .map((cd): AttributCleEtrangere => {
-                let codeAttribut: string;
-                if (!Array.isArray(cd.definition)) {
-                    codeAttribut = cd.column.column.expr.value;
-                } else {
-                    codeAttribut = cd.definition[0].column.expr.value
-                }
+                if (cd.column.type !== 'column_ref' || typeof cd.column.column === 'string') throw new Error('Type impossible');
+                const codeAttribut = cd.column.column.expr.value.toString();                
+
                 return {
                     code: codeAttribut.toUpperCase(),
-                    tableReference: cd.reference_definition?.table[0].table.toUpperCase(),
+                    tableReference: (cd.reference_definition as unknown as ReferenceDefinitionAst)?.table[0].table.toUpperCase(),
+                    colonneReference: (cd.reference_definition as unknown as ReferenceDefinitionAst).definition[0].column.expr.value.toUpperCase(),
+                }
+            });
+
+        const cleEtrangereDefinieContrainte = ast.create_definitions
+            .filter((cd) => cd.resource === "constraint" && cd.constraint_type === "FOREIGN KEY")
+            .filter((cd) => (cd.reference_definition as unknown as ReferenceDefinitionAst)?.table.length > 0)
+            .map((cd): AttributCleEtrangere => {
+                if (cd.definition[0].type !== "column_ref" || typeof cd.definition[0].column === "string") throw new Error('Type impossible')
+                const codeAttribut = cd.definition[0].column.expr.value.toString();
+                return {
+                    code: codeAttribut.toUpperCase(),
+                    tableReference: cd.reference_definition.table[0].table.toUpperCase(),
                     colonneReference: cd.reference_definition.definition[0].column.expr.value.toUpperCase(),
                 }
             });
+            return [...cleEtrangereDefinieColonne, ...cleEtrangereDefinieContrainte,]
         }
+
 }
 
 export default new SqlParser;

@@ -51,9 +51,9 @@ CREATE TABLE epreuve(
 
 CREATE TABLE inscription(
     id SERIAL PRIMARY KEY,
-    coureur_id INTEGER NOT NULL REFERENCES coureur(id),
+    coureur_id INTEGER NOT NULL,
     categorie_id INTEGER NOT NULL REFERENCES categorie_age(id),
-    epreuve_id INTEGER NOT NULL REFERENCES epreuve(id),
+    epreuve_id INTEGER NOT NULL,
     dossard INTEGER CHECK(dossard >= 0 AND dossard <= 99999),
     certificat_medical BOOLEAN NOT NULL DEFAULT false,
     "date" DATE NOT NULL,
@@ -65,7 +65,9 @@ CREATE TABLE inscription(
         CHECK(statut IN ('INSCRIPTION EN COURS', 'INSCRIT', 'COMPLETE')),
     temps_annonce SMALLINT,
     temps_effectue REAL,
-    CONSTRAINT uq_inscription_coureur_par_epreuve UNIQUE (coureur_id, epreuve_id)
+    CONSTRAINT uq_inscription_coureur_par_epreuve UNIQUE (coureur_id, epreuve_id),
+    CONSTRAINT fk_coureur_inscription FOREIGN KEY(coureur_id) REFERENCES coureur(id),
+    CONSTRAINT fk_epreuve_inscription FOREIGN KEY(epreuve_id) REFERENCES epreuve(id)
 );
 
 CREATE TABLE adhesion(
@@ -75,9 +77,9 @@ CREATE TABLE adhesion(
     licence INTEGER UNIQUE NOT NULL,
     club_id INTEGER NOT NULL,
     PRIMARY KEY (coureur_id, annee),
-    CONSTRAINT fk_coureur FOREIGN KEY(coureur_id) REFERENCES coureur(id),
     CONSTRAINT fk_annee FOREIGN KEY(annee) REFERENCES annee(annee),
-    CONSTRAINT fk_club FOREIGN KEY(club_id) REFERENCES club(id)
+    CONSTRAINT fk_club FOREIGN KEY(club_id) REFERENCES club(id),
+    CONSTRAINT fk_coureur FOREIGN KEY(coureur_id) REFERENCES coureur(id)
 );
 
 /*

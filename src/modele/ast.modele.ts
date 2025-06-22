@@ -1,5 +1,3 @@
-export type Ast = AstCreate | AstComment;
-
 export interface AstComment {
     type: 'comment',
     keyword: 'on',
@@ -38,13 +36,7 @@ export interface AstCreate {
                 value: string | boolean | number
             }
         },
-        reference_definition?: {
-            definition: ColumnAst[],
-            table: { db: any, table: string, }[],
-            keyword: 'references',
-            match: null,
-            on_action: any[]
-        },
+        reference_definition?: ReferenceDefinitionAst,
         check?: {
             constraint_type: 'check',
             keyword: any,
@@ -57,3 +49,11 @@ export interface AstCreate {
 }
 
 interface ColumnAst { type: 'column_ref', column: { expr: { type: 'default', value: string, }}, };
+
+export interface ReferenceDefinitionAst {
+    definition: ColumnAst[],
+    table: { db: any, table: string, }[],
+    keyword: 'references',
+    match: null,
+    on_action: any[]
+};

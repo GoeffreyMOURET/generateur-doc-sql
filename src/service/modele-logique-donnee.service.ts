@@ -1,14 +1,12 @@
-import { Paragraph, Table } from "docx";
+import { Paragraph, Table, Document, Packer } from "docx";
+import { writeFileSync } from 'fs'
 import InfoTable, { InfoColonne } from "../modele/info-table.interface";
 import DocxUtils from "../utils/docx.utils";
 import { CHEMIN_SAUVEGARDE_DOC } from "../constante/sauvegarde.constante";
 
-const fs = require('fs');
-const docx = require('docx');
-
 class ModeleLogiqueDonneesService {
     async construireModele(infoTables: InfoTable[]) {
-        const doc = new docx.Document({
+        const doc = new Document({
             sections: [{
                 children: [
                     new Paragraph({
@@ -16,24 +14,18 @@ class ModeleLogiqueDonneesService {
                         text: 'Schéma du modèle logique de données',
                     }),
                     ...DocxUtils.ajouterSautDeLigne(this.construireParagrapheMLD(infoTables)),
-                    new Paragraph({
-                        heading: "Heading1",
-                        text: 'Détails des différentes tables',
-                    }),
+                    DocxUtils.construireTitre1('Détails des différentes tables'),
                     ...infoTables.flatMap((it) => [
-                        new Paragraph({
-                            heading: "Heading2",
-                            text: `Table ${it.code}`
-                        }),
+                        DocxUtils.construireTitre2(`Table ${it.code}`),
                         ...this.construireTableauMLD(it), 
                         ...(this.construireTableauCleEtrangere(it) ?? [])
                     ]),
                 ]
             }]
         });
-        const blob = await docx.Packer.toBlob(doc);
+        const blob = await Packer.toBlob(doc);
         const buffer = Buffer.from( await blob.arrayBuffer() );
-        fs.writeFileSync(CHEMIN_SAUVEGARDE_DOC + "MLD.docx", buffer);
+        writeFileSync(CHEMIN_SAUVEGARDE_DOC + "/MLD.docx", buffer);
         console.log('Fin de génération du MLD !')
     }
 
@@ -78,10 +70,7 @@ class ModeleLogiqueDonneesService {
                 infoCleEtrangere: infoTable.clesEtrangeres.find((ce) => ce.code === att.code),
             }))
         return [
-                new Paragraph({
-                    heading: 'Heading3',
-                    text: `Informations concernant la table ${infoTable.code}`
-                }),
+                DocxUtils.construireTitre3(`Informations concernant la table ${infoTable.code}`),
                 DocxUtils.construireTableau(
                 [
                     { intitule: 'Attribut', contenu: (ic: InfoColonne) => ic.code, largeur: 15, },
@@ -105,10 +94,7 @@ class ModeleLogiqueDonneesService {
             .filter((att) => att.infoCleEtrangere);
         if (lignes.length === 0) return;
         return [
-            new Paragraph({
-                heading: "Heading3",
-                text: `Clés étrangères de la table ${infoTable.code}`
-            }),
+            DocxUtils.construireTitre3(`Clés étrangères de la table ${infoTable.code}`),
             DocxUtils.construireTableau(
             [
                 { intitule: 'Attribut', contenu: (ic: InfoColonne) => ic.code, largeur: 15, },

@@ -140,6 +140,27 @@ export default class DocxUtils {
             .filter((table) => table !== undefined)
             .flatMap((table) => [table, new Paragraph('')]);
     }
+
+    static construireTitre1(titre: string): Paragraph {
+        return new Paragraph({
+            heading: "Heading1",
+            text: titre,
+        })
+    }
+
+    static construireTitre2(titre: string): Paragraph {
+        return new Paragraph({
+            heading: "Heading2",
+            text: titre,
+        })
+    }
+    
+    static construireTitre3(titre: string): Paragraph {
+        return new Paragraph({
+            heading: "Heading3",
+            text: titre,
+        })
+    }
 }
 
 const baliseFermante = (balise: string) => balise[0] + '/' + balise.substring(1);
