@@ -82,6 +82,10 @@ CREATE TABLE adhesion(
     CONSTRAINT fk_coureur FOREIGN KEY(coureur_id) REFERENCES coureur(id)
 );
 
+CREATE INDEX IDX_PK_ADHESION ON adhesion(coureur_id, annee);
+
+CREATE INDEX IDX_FK_ADHESION_A_PR_CLUB ON adhesion(club_id);
+
 /*
 * Table de log d'inscriptions (utile pour la partie sur les TRIGGERS)
 */

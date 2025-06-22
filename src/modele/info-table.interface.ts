@@ -5,6 +5,7 @@ export default interface InfoTable {
     attributs: Attribut[],
     description ?: string,
     uniques ?: UniqueContrainte[], 
+    indexes ?: InfoIndex[],
 }
 
 export interface Attribut {
@@ -30,5 +31,11 @@ export interface InfoColonne extends Attribut {
 
 export interface UniqueContrainte {
     nom: string,
-    code: string[],
+    codesAttributs: string[],
+}
+
+export interface InfoIndex {
+    nom: string,
+    codesAttributs: string[],
+    table: string,
 }

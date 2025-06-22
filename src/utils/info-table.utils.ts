@@ -7,7 +7,7 @@ export default class InfoTableUtils {
                 ...att,
                 estClePrimaire: infoTable.clesPrimaires.includes(att.code),
                 infoCleEtrangere: infoTable.clesEtrangeres.find((ce) => ce.code === att.code),
-                estUnique: infoTable.uniques.some((unique) => unique.code.every((code) => code === att.code))
+                estUnique: infoTable.uniques.some((unique) => unique.codesAttributs.every((code) => code === att.code))
             }))
     }
 }

@@ -1,7 +1,7 @@
 import { AstComment, AstCreate, ColumnAst, ReferenceDefinitionAst } from "../modele/ast.modele";
 import { readFileSync } from 'fs';
 import { AST, ColumnRef, Create, Parser } from 'node-sql-parser/build/postgresql';
-import InfoTable, { Attribut, AttributCleEtrangere, UniqueContrainte } from "../modele/info-table.interface";
+import InfoTable, { Attribut, AttributCleEtrangere, InfoIndex, UniqueContrainte } from "../modele/info-table.interface";
 import ObjetUtils from "../utils/objet.utils";
 import { CHEMIN_RESSOURCE } from "../constante/sauvegarde.constante";
 
@@ -9,12 +9,18 @@ class SqlParser {
     recupererTablesCrees(): InfoTable[] {
         const infoTable = this.chargerSQL()
             .filter((ast) => ast.type === 'create')
+            .filter((ast) => ast.create_definitions)
             .map((ast) => this.construireInfoTable(ast))
 
         this.ajouterCommentaire(
             infoTable, 
             this.chargerSQL().filter((ast) => ast.type === 'comment')
         );
+
+        this.ajouterIndex(
+            infoTable,
+            this.chargerSQL().filter((ast) => ast.type === 'create')
+        )
         
         return infoTable;
     }
@@ -37,9 +43,26 @@ class SqlParser {
                     .find((colonne) => colonne.code === ac.target.name.column.expr.value.toUpperCase());
                 colonneAssociee.description = ac.expr.expr.value;
             });
-
-        
     }
+
+    private ajouterIndex(infoTable: InfoTable[], ast: AST[]): void {
+        ast
+            .filter((ac) => ac.type === "create")
+            .filter((ac) => ac.index)
+            .map((ac): InfoIndex => {
+                return {
+                    table: (ac.table as unknown as { table: string, }).table.toUpperCase(),
+                    nom: ac.index,
+                    codesAttributs: ac.index_columns.map((ic) => (ic as ColumnAst).column.expr.value.toUpperCase())
+                }
+            })
+            .forEach((infoIndex) => {
+                const it = infoTable.find((it) => it.code === infoIndex.table);
+                if (it === undefined) throw new Error(`Table ${infoIndex.table} non trouvée`);
+                it.indexes = it.indexes ?? [];
+                it.indexes.push(infoIndex);
+            })
+        }
 
     private chargerSQL(): (AST | AstComment)[] {
         const sqlFile = readFileSync(`${CHEMIN_RESSOURCE}/schema.sql`).toString();
@@ -126,11 +149,11 @@ class SqlParser {
         const contraintesUniqueDefinitionColonne: UniqueContrainte[] = ast.create_definitions
             .filter((cd) => cd.resource === "column")
             .filter((cd) => cd.unique)
-            .map((cd) => {
+            .map((cd): UniqueContrainte => {
                 if (cd.column.type !== 'column_ref' || typeof cd.column.column === 'string') throw new Error('Type impossible');
                 const codeAttribut = ObjetUtils.toString(cd.column.column.expr.value).toUpperCase() ?? '';
                 return {
-                    code: [codeAttribut],
+                    codesAttributs: [codeAttribut],
                     nom: `CK_UNIQUE_${ast.table[0].table}_${codeAttribut}`
                 };
             }
@@ -139,9 +162,9 @@ class SqlParser {
         const contraintesUniqueDefinitionContrainte: UniqueContrainte[] = ast.create_definitions
             .filter((cd) => cd.resource === "constraint")
             .filter((cd) => cd.constraint_type === "unique")
-            .map((cd) => {
+            .map((cd): UniqueContrainte => {
                 return {
-                    code: cd.definition
+                    codesAttributs: cd.definition
                         .filter((def) => def.type === "column_ref")
                         .map((def) => (def as ColumnAst).column.expr.value.toUpperCase()),
                     nom: cd.constraint.toUpperCase()
