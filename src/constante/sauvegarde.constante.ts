@@ -1,0 +1,1 @@
+export const CHEMIN_SAUVEGARDE_DOC = 'doc_generes/';
