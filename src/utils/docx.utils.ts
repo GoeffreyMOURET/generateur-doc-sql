@@ -141,6 +141,10 @@ export default class DocxUtils {
             .flatMap((table) => [table, new Paragraph('')]);
     }
 
+    static sautDeLigne(): Paragraph {
+        return new Paragraph('')
+    }
+
     static construireTitre1(titre: string): Paragraph {
         return new Paragraph({
             heading: "Heading1",

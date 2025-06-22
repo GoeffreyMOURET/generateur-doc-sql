@@ -3,16 +3,14 @@ import { writeFileSync } from 'fs'
 import InfoTable, { InfoColonne } from "../modele/info-table.interface";
 import DocxUtils from "../utils/docx.utils";
 import { CHEMIN_SAUVEGARDE_DOC } from "../constante/sauvegarde.constante";
+import InfoTableUtils from "../utils/info-table.utils";
 
 class ModeleLogiqueDonneesService {
     async construireModele(infoTables: InfoTable[]) {
         const doc = new Document({
             sections: [{
                 children: [
-                    new Paragraph({
-                        heading: "Heading1",
-                        text: 'Schéma du modèle logique de données',
-                    }),
+                    DocxUtils.construireTitre1('Schéma du modèle logique de données'),
                     ...DocxUtils.ajouterSautDeLigne(this.construireParagrapheMLD(infoTables)),
                     DocxUtils.construireTitre1('Détails des différentes tables'),
                     ...infoTables.flatMap((it) => [
@@ -63,12 +61,6 @@ class ModeleLogiqueDonneesService {
     }
 
     private construireTableauMLD(infoTable: InfoTable): [Paragraph, Table] {
-        const lignes: InfoColonne[] = infoTable.attributs
-            .map((att) => ({
-                ...att,
-                estClePrimaire: infoTable.clesPrimaires.includes(att.code),
-                infoCleEtrangere: infoTable.clesEtrangeres.find((ce) => ce.code === att.code),
-            }))
         return [
                 DocxUtils.construireTitre3(`Informations concernant la table ${infoTable.code}`),
                 DocxUtils.construireTableau(
@@ -79,18 +71,13 @@ class ModeleLogiqueDonneesService {
                     { intitule: 'Clé Primaire', contenu: (ic: InfoColonne) => ic.estClePrimaire ? 'X' : '', largeur: 10, },
                     { intitule: 'Obligatoire', contenu: (ic: InfoColonne) => ic.nullable ? '' : 'X', largeur: 10, },
                 ],
-                lignes,
+                InfoTableUtils.versInfoColonne(infoTable),
             )
         ]
     }
     
     private construireTableauCleEtrangere(infoTable: InfoTable): [Paragraph, Table,] | undefined {
-        const lignes: InfoColonne[] = infoTable.attributs
-            .map((att) => ({
-                ...att,
-                estClePrimaire: infoTable.clesPrimaires.includes(att.code),
-                infoCleEtrangere: infoTable.clesEtrangeres.find((ce) => ce.code === att.code),
-            }))
+        const lignes: InfoColonne[] = InfoTableUtils.versInfoColonne(infoTable)
             .filter((att) => att.infoCleEtrangere);
         if (lignes.length === 0) return;
         return [

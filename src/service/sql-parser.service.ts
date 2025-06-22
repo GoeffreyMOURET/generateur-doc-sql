@@ -1,7 +1,7 @@
-import { AstComment, AstCreate, ReferenceDefinitionAst } from "../modele/ast.modele";
+import { AstComment, AstCreate, ColumnAst, ReferenceDefinitionAst } from "../modele/ast.modele";
 import { readFileSync } from 'fs';
-import { AST, Create, Parser } from 'node-sql-parser/build/postgresql';
-import InfoTable, { Attribut, AttributCleEtrangere } from "../modele/info-table.interface";
+import { AST, ColumnRef, Create, Parser } from 'node-sql-parser/build/postgresql';
+import InfoTable, { Attribut, AttributCleEtrangere, UniqueContrainte } from "../modele/info-table.interface";
 import ObjetUtils from "../utils/objet.utils";
 import { CHEMIN_RESSOURCE } from "../constante/sauvegarde.constante";
 
@@ -53,6 +53,7 @@ class SqlParser {
             clesEtrangeres: this.recupererClesEtrangeres(ast),
             clesPrimaires: this.recupererClesPrimaire(ast),
             code: ast.table[0].table.toUpperCase(),
+            uniques: this.recupererContraintesUniques(ast)
         }
     }
 
@@ -119,8 +120,38 @@ class SqlParser {
                 }
             });
             return [...cleEtrangereDefinieColonne, ...cleEtrangereDefinieContrainte,]
-        }
+    }
 
+    recupererContraintesUniques(ast: Create): UniqueContrainte[] {
+        const contraintesUniqueDefinitionColonne: UniqueContrainte[] = ast.create_definitions
+            .filter((cd) => cd.resource === "column")
+            .filter((cd) => cd.unique)
+            .map((cd) => {
+                if (cd.column.type !== 'column_ref' || typeof cd.column.column === 'string') throw new Error('Type impossible');
+                const codeAttribut = ObjetUtils.toString(cd.column.column.expr.value).toUpperCase() ?? '';
+                return {
+                    code: [codeAttribut],
+                    nom: `CK_UNIQUE_${ast.table[0].table}_${codeAttribut}`
+                };
+            }
+        );
+
+        const contraintesUniqueDefinitionContrainte: UniqueContrainte[] = ast.create_definitions
+            .filter((cd) => cd.resource === "constraint")
+            .filter((cd) => cd.constraint_type === "unique")
+            .map((cd) => {
+                return {
+                    code: cd.definition
+                        .filter((def) => def.type === "column_ref")
+                        .map((def) => (def as ColumnAst).column.expr.value.toUpperCase()),
+                    nom: cd.constraint.toUpperCase()
+                };
+            }
+        )
+
+        return [...contraintesUniqueDefinitionColonne, ...contraintesUniqueDefinitionContrainte]
+
+    }
 }
 
 export default new SqlParser;

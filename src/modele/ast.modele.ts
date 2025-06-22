@@ -48,7 +48,7 @@ export interface AstCreate {
     }[]
 }
 
-interface ColumnAst { type: 'column_ref', column: { expr: { type: 'default', value: string, }}, };
+export interface ColumnAst { type: 'column_ref', column: { expr: { type: 'default', value: string, }}, };
 
 export interface ReferenceDefinitionAst {
     definition: ColumnAst[],

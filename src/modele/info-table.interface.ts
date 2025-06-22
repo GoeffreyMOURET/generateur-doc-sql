@@ -4,6 +4,7 @@ export default interface InfoTable {
     clesEtrangeres: AttributCleEtrangere[],
     attributs: Attribut[],
     description ?: string,
+    uniques ?: UniqueContrainte[], 
 }
 
 export interface Attribut {
@@ -24,4 +25,10 @@ export interface AttributCleEtrangere {
 export interface InfoColonne extends Attribut {
     estClePrimaire ?: boolean,
     infoCleEtrangere ?: AttributCleEtrangere,
+    estUnique?: boolean,
+}
+
+export interface UniqueContrainte {
+    nom: string,
+    code: string[],
 }
